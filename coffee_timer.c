@@ -9,7 +9,7 @@
 #include <errno.h>
 
 #define WINDOW_WIDTH  206
-#define WINDOW_HEIGHT 180  // Уменьшили высоту, так как кнопка теперь выше
+#define WINDOW_HEIGHT 180
 #define DEFAULT_TIMER_SECONDS 490
 #define DEFAULT_MUSIC_FILE    "/home/diver/Загрузки/Музыка/12/coffee.mp3"
 #define LOCK_FILE     "/tmp/coffee_timer.lock"
@@ -18,7 +18,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 Mix_Music* music = NULL;
 int lock_fd = -1;
-SDL_Rect cancel_button = {0};  // Область кнопки отмены
+SDL_Rect cancel_button = {0};
 
 // Прототипы функций
 void init_sdl();
@@ -29,7 +29,7 @@ void check_exit_signal();
 void draw_char(int x, int y, char c);
 void draw_string(int x, int y, const char* str);
 
-// Растровые данные для цифр и символа % (исправленная ориентация)
+// Растровые данные для цифр и символа %
 static const Uint8 font_data[11][5] = {
     {0x7C, 0x82, 0x82, 0x82, 0x7C}, // 0
     {0x00, 0x42, 0xFE, 0x02, 0x00}, // 1
@@ -63,7 +63,6 @@ void draw_char(int x, int y, char c) {
     // Рисуем столбец за столбцом
     for (int col = 0; col < 5; col++) {
         Uint8 byte = bitmap[col];
-        // Исправлено: рисуем биты в правильном порядке (сверху вниз)
         for (int row = 0; row < 8; row++) {
             if (byte & (1 << (7 - row))) {
                 SDL_RenderDrawPoint(renderer, x + col, y + row);
@@ -166,7 +165,7 @@ void render_progress(float progress) {
     
     draw_string(text_x, text_y, progress_text);
 
-    // Рисуем кнопку отмены (теперь выше)
+    // Рисуем кнопку отмены
     SDL_SetRenderDrawColor(renderer, 180, 50, 50, 255);
     SDL_RenderFillRect(renderer, &cancel_button);
     
