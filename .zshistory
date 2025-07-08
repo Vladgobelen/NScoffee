@@ -1,5 +1,0 @@
-env MESA_LOADER_DRIVER_OVERRIDE=iris DXVK_HUD=fps,info WINEDEBUG=-all WINEPREFIX=/home/diver/WP7RS/PF STAGING_SHARED_MEMORY=1 DXVK_STATE_CACHE=1 STAGING_WRITECOPY=1 /home/diver/WP7RS/bin/wine autorun.exe
-env MESA_LOADER_DRIVER_OVERRIDE=iris DXVK_HUD=fps,info WINEDEBUG=-all WINEPREFIX=/home/diver/WP7RS/PF STAGING_SHARED_MEMORY=1 DXVK_STATE_CACHE=1 STAGING_WRITECOPY=1 /home/diver/WP7RS/bin/wine RigNRoll.exe
-wine autorun.exe
-gcc -o coffee_timer coffee_timer.c -lSDL2 -lSDL2_mixer -lSDL2_ttf
-gcc -o coffee_timer coffee_timer.c -I/usr/include/SDL2 -lSDL2 -lSDL2_mixer -lSDL2_ttf
