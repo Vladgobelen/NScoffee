@@ -8,10 +8,10 @@
 #include <string.h>
 #include <errno.h>
 
-#define WINDOW_WIDTH  300
-#define WINDOW_HEIGHT 100
-#define TIMER_SECONDS 490
-#define MUSIC_FILE    "/home/diver/Загрузки/Музыка/12/coffee.mp3"
+#define WINDOW_WIDTH  206
+#define WINDOW_HEIGHT 173
+#define DEFAULT_TIMER_SECONDS 490
+#define DEFAULT_MUSIC_FILE    "/home/diver/Загрузки/Музыка/12/coffee.mp3"
 #define LOCK_FILE     "/tmp/coffee_timer.lock"
 
 SDL_Window* window = NULL;
@@ -61,17 +61,6 @@ void init_sdl() {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         fprintf(stderr, "Renderer error: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        Mix_CloseAudio();
-        SDL_Quit();
-        exit(1);
-    }
-
-    // Загрузка музыки
-    music = Mix_LoadMUS(MUSIC_FILE);
-    if (!music) {
-        fprintf(stderr, "Music load error: %s\n", Mix_GetError());
-        SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         Mix_CloseAudio();
         SDL_Quit();
@@ -171,7 +160,32 @@ void cleanup() {
 /*----------------------------------------------------------
   Главная функция
 ----------------------------------------------------------*/
-int main() {
+int main(int argc, char* argv[]) {
+    // Установка значений по умолчанию
+    int timer_seconds = DEFAULT_TIMER_SECONDS;
+    const char* music_file = DEFAULT_MUSIC_FILE;
+
+    // Обработка аргументов командной строки
+    if (argc >= 2) {
+        char* endptr;
+        long seconds = strtol(argv[1], &endptr, 10);
+        
+        if (*endptr != '\0' || seconds <= 0) {
+            fprintf(stderr, "Invalid timer value. Using default: %d seconds\n", 
+                    DEFAULT_TIMER_SECONDS);
+        } else {
+            timer_seconds = (int)seconds;
+        }
+    }
+    
+    if (argc >= 3) {
+        music_file = argv[2];
+    }
+
+    printf("Using configuration:\n");
+    printf("  Timer: %d seconds\n", timer_seconds);
+    printf("  Music: %s\n", music_file);
+
     // Проверка блокировки
     if (!try_get_lock()) {
         return 1;
@@ -183,12 +197,19 @@ int main() {
     // Инициализация
     init_sdl();
 
+    // Загрузка музыки
+    music = Mix_LoadMUS(music_file);
+    if (!music) {
+        fprintf(stderr, "Music load error: %s\n", Mix_GetError());
+        return 1;
+    }
+
     // Основной цикл
     int running = 1;
     int seconds = 0;
     SDL_Event event;
 
-    while (running && seconds < TIMER_SECONDS) {
+    while (running && seconds < timer_seconds) {
         // Обработка событий
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -200,7 +221,7 @@ int main() {
         check_exit_signal();
 
         // Отрисовка
-        render_progress((float)seconds / TIMER_SECONDS);
+        render_progress((float)seconds / timer_seconds);
 
         // Пауза 1 секунда
         SDL_Delay(1000);
