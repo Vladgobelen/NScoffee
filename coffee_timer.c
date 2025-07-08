@@ -9,7 +9,7 @@
 #include <errno.h>
 
 #define WINDOW_WIDTH  206
-#define WINDOW_HEIGHT 173
+#define WINDOW_HEIGHT 180  // Уменьшили высоту, так как кнопка теперь выше
 #define DEFAULT_TIMER_SECONDS 490
 #define DEFAULT_MUSIC_FILE    "/home/diver/Загрузки/Музыка/12/coffee.mp3"
 #define LOCK_FILE     "/tmp/coffee_timer.lock"
@@ -18,6 +18,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 Mix_Music* music = NULL;
 int lock_fd = -1;
+SDL_Rect cancel_button = {0};  // Область кнопки отмены
 
 // Прототипы функций
 void init_sdl();
@@ -25,6 +26,61 @@ void cleanup();
 void render_progress(float progress);
 int try_get_lock();
 void check_exit_signal();
+void draw_char(int x, int y, char c);
+void draw_string(int x, int y, const char* str);
+
+// Растровые данные для цифр и символа % (исправленная ориентация)
+static const Uint8 font_data[11][5] = {
+    {0x7C, 0x82, 0x82, 0x82, 0x7C}, // 0
+    {0x00, 0x42, 0xFE, 0x02, 0x00}, // 1
+    {0x42, 0x86, 0x8A, 0x92, 0x62}, // 2
+    {0x44, 0x82, 0x92, 0x92, 0x6C}, // 3
+    {0x30, 0x50, 0x90, 0xFE, 0x10}, // 4
+    {0xE4, 0xA2, 0xA2, 0xA2, 0x9C}, // 5
+    {0x7C, 0xA2, 0xA2, 0xA2, 0x1C}, // 6
+    {0x80, 0x8E, 0x90, 0xA0, 0xC0}, // 7
+    {0x6C, 0x92, 0x92, 0x92, 0x6C}, // 8
+    {0x60, 0x92, 0x92, 0x92, 0x7C}, // 9
+    {0x62, 0x94, 0x88, 0x94, 0x62}  // %
+};
+
+/*----------------------------------------------------------
+  Рисование символа с помощью растровой карты
+----------------------------------------------------------*/
+void draw_char(int x, int y, char c) {
+    int index = -1;
+    
+    if (c >= '0' && c <= '9') {
+        index = c - '0';
+    } else if (c == '%') {
+        index = 10;
+    }
+    
+    if (index < 0 || index > 10) return;
+    
+    const Uint8* bitmap = font_data[index];
+    
+    // Рисуем столбец за столбцом
+    for (int col = 0; col < 5; col++) {
+        Uint8 byte = bitmap[col];
+        // Исправлено: рисуем биты в правильном порядке (сверху вниз)
+        for (int row = 0; row < 8; row++) {
+            if (byte & (1 << (7 - row))) {
+                SDL_RenderDrawPoint(renderer, x + col, y + row);
+            }
+        }
+    }
+}
+
+/*----------------------------------------------------------
+  Рисование строки
+----------------------------------------------------------*/
+void draw_string(int x, int y, const char* str) {
+    for (const char* p = str; *p; p++) {
+        draw_char(x, y, *p);
+        x += 6;  // Ширина символа + отступ
+    }
+}
 
 /*----------------------------------------------------------
   Инициализация SDL и аудио
@@ -66,10 +122,16 @@ void init_sdl() {
         SDL_Quit();
         exit(1);
     }
+
+    // Инициализация кнопки отмены (под прогресс-баром)
+    cancel_button.x = WINDOW_WIDTH - 80;
+    cancel_button.y = 70;  // Под прогресс-баром
+    cancel_button.w = 70;
+    cancel_button.h = 25;
 }
 
 /*----------------------------------------------------------
-  Отрисовка прогресс-бара
+  Отрисовка прогресс-бара и интерфейса
 ----------------------------------------------------------*/
 void render_progress(float progress) {
     // Очистка экрана
@@ -86,6 +148,35 @@ void render_progress(float progress) {
     };
     SDL_RenderFillRect(renderer, &bar);
 
+    // Отображаем процентный текст
+    char progress_text[16];
+    snprintf(progress_text, sizeof(progress_text), "%d%%", (int)(progress * 100));
+    
+    // Устанавливаем белый цвет для текста
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    
+    // Рисуем текст внутри прогресс-бара
+    int text_x = bar.x + bar.w - 30;
+    int text_y = bar.y + 7;  // Центрирование по вертикали
+    
+    // Если текст слишком близко к краю, смещаем влево
+    if (text_x < bar.x + 30) {
+        text_x = bar.x + 5;
+    }
+    
+    draw_string(text_x, text_y, progress_text);
+
+    // Рисуем кнопку отмены (теперь выше)
+    SDL_SetRenderDrawColor(renderer, 180, 50, 50, 255);
+    SDL_RenderFillRect(renderer, &cancel_button);
+    
+    SDL_SetRenderDrawColor(renderer, 230, 80, 80, 255);
+    SDL_RenderDrawRect(renderer, &cancel_button);
+    
+    // Текст на кнопке (русский)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    draw_string(cancel_button.x + 10, cancel_button.y + 7, "Отмена");
+    
     // Выводим на экран
     SDL_RenderPresent(renderer);
 }
@@ -215,6 +306,19 @@ int main(int argc, char* argv[]) {
             if (event.type == SDL_QUIT) {
                 running = 0;
             }
+            else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                int mouse_x = event.button.x;
+                int mouse_y = event.button.y;
+                
+                // Проверка клика по кнопке отмены
+                if (mouse_x >= cancel_button.x && 
+                    mouse_x <= cancel_button.x + cancel_button.w &&
+                    mouse_y >= cancel_button.y && 
+                    mouse_y <= cancel_button.y + cancel_button.h) {
+                    printf("Нажата кнопка отмены\n");
+                    running = 0;
+                }
+            }
         }
 
         // Проверка команды выхода
@@ -228,8 +332,8 @@ int main(int argc, char* argv[]) {
         seconds++;
     }
 
-    // Воспроизведение музыки
-    if (running) {
+    // Воспроизведение музыки только если таймер завершился
+    if (running && seconds >= timer_seconds) {
         Mix_PlayMusic(music, 1);
         while (Mix_PlayingMusic()) {
             SDL_Delay(100);
